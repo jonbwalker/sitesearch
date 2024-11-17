@@ -36,21 +36,21 @@ class SearchNotifier {
 
   async notify(searchTerm) {
     const result = await this.search(searchTerm);
-    console.log('twilioConfig.enabled', typeof twilioConfig.enabled)
+
     if (result.noResults) {
       console.log(`No results found for '${searchTerm}'`);
-    } else {
-      console.log(`${result.resultsCount} Results found for '${searchTerm}'`);
-      console.log(result.resultTitles);
-      if (twilioConfig.enabled) {
-        console.log('hi')
-        const message = `${result.resultsCount} Results found for '${searchTerm}':\n` +
-            result.resultTitles
-                .map(([title, price]) => `${title} - ${price ? price : 'No price'}`)
-                .join('\n');
+      return;
+    }
 
-        this.sendTextMessage(message);
-      }
+    console.log(`${result.resultsCount} Results found for '${searchTerm}'`);
+    console.log(result.resultTitles);
+
+    if (twilioConfig.enabled) {
+      const message = `${result.resultsCount} Results found for '${searchTerm}':\n` +
+          result.resultTitles
+              .map(([title, price]) => `${title} - ${price ? price : 'No price'}`)
+              .join('\n');
+      this.sendTextMessage(message);
     }
   }
 
