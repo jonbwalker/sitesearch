@@ -97,7 +97,7 @@ const toPhoneNumber = twilioConfig.toPhoneNumber;
 const fromPhoneNumber = twilioConfig.fromPhoneNumber;
 
 const notifier = new SearchNotifier(accountSid, authToken, toPhoneNumber, fromPhoneNumber);
-const searchTerm = process.argv[2] || 'default-search-term';
+const searchTerm = process.argv[2];
 
 notifier.scheduleSearch(searchTerm);
 
