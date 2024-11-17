@@ -8,6 +8,7 @@ class SearchNotifier {
     this.client = twilio(accountSid, authToken);
     this.toPhoneNumber = toPhoneNumber;
     this.fromPhoneNumber = fromPhoneNumber;
+    this.job = null;
   }
 
   async search(searchTerm) {
@@ -52,6 +53,11 @@ class SearchNotifier {
               .join('\n');
       this.sendTextMessage(message);
     }
+
+    if (this.job) {
+      console.log('Results found, stopping the scheduled job.');
+      this.job.cancel();
+    }
   }
 
   sendTextMessage(message) {
@@ -66,10 +72,20 @@ class SearchNotifier {
   }
 
   scheduleSearch(searchTerm, interval = '*/30 * * * * *') {
-    schedule.scheduleJob(interval, () => {
+    this.job = schedule.scheduleJob(interval, () => {
       console.log('Running scheduled search...');
       this.notify(searchTerm);
     });
+  }
+
+  async jobShutdown() {
+    console.log('Shutting down gracefully...');
+    if (this.job) {
+      this.job.cancel();
+    }
+    await schedule.gracefulShutdown();
+    console.log('Scheduler shut down complete.');
+    process.exit(0);
   }
 }
 
@@ -82,3 +98,7 @@ const notifier = new SearchNotifier(accountSid, authToken, toPhoneNumber, fromPh
 const searchTerm = process.argv[2] || 'default-search-term';
 
 notifier.scheduleSearch(searchTerm);
+
+process.on('SIGINT', async () => {
+  await notifier.jobShutdown();
+});
