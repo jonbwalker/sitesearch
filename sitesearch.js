@@ -83,9 +83,11 @@ class SearchNotifier {
     if (this.job) {
       this.job.cancel();
     }
-    await schedule.gracefulShutdown();
-    console.log('Scheduler shut down complete.');
-    process.exit(0);
+    await schedule.gracefulShutdown()
+        .then(() => {
+          console.log('Scheduler shut down complete.');
+          process.exit(0)
+        });
   }
 }
 
