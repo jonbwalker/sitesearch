@@ -3,6 +3,7 @@ dotenv.config();
 module.exports = {
     searchUrl: process.env.SEARCH_URL,
     resultClass: process.env.RESULT_CLASS,
+    debugging: process.env.DEBUGGING === true,
     twilioConfig: {
         enabled: process.env.TWILIO_ENABLED === 'true',
         accountSid: process.env.TWILIO_ACCOUNT_SID,

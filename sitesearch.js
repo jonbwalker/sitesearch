@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const schedule = require('node-schedule');
 const twilio = require('twilio');
-const { searchUrl, resultClass, twilioConfig } = require('./config');
+const { searchUrl, resultClass, twilioConfig, debugging } = require('./config');
 
 class SearchNotifier {
   constructor(accountSid, authToken, toPhoneNumber, fromPhoneNumber) {
@@ -13,9 +13,26 @@ class SearchNotifier {
 
   async search(searchTerm) {
     const url = `${searchUrl}${searchTerm}`;
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+    });
     const page = await browser.newPage();
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/118.0'
+    ];
+    await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9'
+    });
+
     await page.goto(url, { waitUntil: 'networkidle2' });
+    if (debugging) {
+      const html = await page.content();
+      console.log('HTML content:', html);
+    }
 
     const result = await page.evaluate((resultClass) => {
       const noResults = document.querySelector('p')?.textContent.includes('no results');
