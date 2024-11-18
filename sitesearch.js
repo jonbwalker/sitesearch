@@ -28,28 +28,43 @@ class SearchNotifier {
       'Accept-Language': 'en-US,en;q=0.9'
     });
 
-    await page.goto(url, { waitUntil: 'networkidle2' });
-    if (debugging) {
-      const html = await page.content();
-      console.log('HTML content:', html);
+    try {
+      const client = await page.target().createCDPSession();
+      await client.send('Network.clearBrowserCookies');
+      await client.send('Network.clearBrowserCache');
+      console.log('Cookies and cache cleared.');
+    } catch (error) {
+      console.error('Error clearing cookies and cache:', error);
     }
 
-    const result = await page.evaluate((resultClass) => {
-      const noResults = document.querySelector('p')?.textContent.includes('no results');
-      const resultEls = document.querySelectorAll(resultClass);
-      const resultTitles = Array.from(resultEls).map(el => {
-        const span = el.querySelector('span');
-        const priceElement = Array.from(el.querySelectorAll('p')).find(p => p.textContent.includes('$'));
-        const price = priceElement ? priceElement.textContent : null;
-        return [span?.textContent, price];
-      });
-      const resultsCount = noResults ? 0 : resultEls.length;
+    try {
+      await page.goto(url, {waitUntil: 'networkidle2'});
+      console.log('debugging', debugging)
+      if (debugging) {
+        const html = await page.content();
+        console.log('HTML content:', html);
+      }
 
-      return { noResults, resultsCount, resultTitles };
-    }, resultClass);
+      const result = await page.evaluate((resultClass) => {
+        const noResults = document.querySelector('p')?.textContent.includes('no results');
+        const resultEls = document.querySelectorAll(resultClass);
+        const resultTitles = Array.from(resultEls).map(el => {
+          const span = el.querySelector('span');
+          const priceElement = Array.from(el.querySelectorAll('p')).find(p => p.textContent.includes('$'));
+          const price = priceElement ? priceElement.textContent : null;
+          return [span?.textContent, price];
+        });
+        const resultsCount = noResults ? 0 : resultEls.length;
 
-    await browser.close();
-    return result;
+        return {noResults, resultsCount, resultTitles};
+      }, resultClass);
+
+      return result;
+    } catch (error) {
+      console.error('Error loading page:', error);
+    } finally {
+      await browser.close();
+    }
   }
 
   async notify(searchTerm) {
