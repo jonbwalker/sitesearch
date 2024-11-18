@@ -4,48 +4,27 @@ const twilio = require('twilio');
 const { searchUrl, resultClass, twilioConfig, debugging } = require('./config');
 
 class SearchNotifier {
-  constructor(accountSid, authToken, toPhoneNumber, fromPhoneNumber) {
+  constructor(accountSid, authToken, toPhoneNumber, fromPhoneNumber, searchTerm) {
     this.client = twilio(accountSid, authToken);
     this.toPhoneNumber = toPhoneNumber;
     this.fromPhoneNumber = fromPhoneNumber;
+    this.searchTerm = searchTerm;
     this.job = null;
+    this.page = null;
+    this.browser = null;
   }
 
-  async search(searchTerm) {
-    const url = `${searchUrl}${searchTerm}`;
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
-    });
-    const page = await browser.newPage();
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/118.0'
-    ];
-    await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'en-US,en;q=0.9'
-    });
-
+  async search() {
     try {
-      const client = await page.createCDPSession();
-      await client.send('Network.clearBrowserCookies');
-      await client.send('Network.clearBrowserCache');
-      console.log('Cookies and cache cleared.');
-    } catch (error) {
-      console.error('Error clearing cookies and cache:', error);
-    }
-
-    try {
-      await page.goto(url, {waitUntil: 'networkidle2'});
+      const url = `${searchUrl}${this.searchTerm}`;
+      await this.page.goto(url, {waitUntil: 'networkidle2'});
 
       if (debugging) {
-        const html = await page.content();
+        const html = await this.page.content();
         console.log('HTML content:', html);
       }
 
-      return await page.evaluate((resultClass) => {
+      return await this.page.evaluate((resultClass) => {
         const noResults = document.querySelector('p')?.textContent.includes('no results');
         const resultEls = document.querySelectorAll(resultClass);
         const resultTitles = Array.from(resultEls).map(el => {
@@ -61,23 +40,23 @@ class SearchNotifier {
     } catch (error) {
       console.error('Error loading page:', error);
     } finally {
-      await browser.close();
+      await this.browser.close();
     }
   }
 
-  async notify(searchTerm) {
-    const result = await this.search(searchTerm);
+  async notify() {
+    const result = await this.search();
 
     if (result.noResults) {
-      console.log(`No results found for '${searchTerm}'`);
+      console.log(`No results found for '${this.searchTerm}'`);
       return;
     }
 
-    console.log(`${result.resultsCount} Results found for '${searchTerm}'`);
+    console.log(`${result.resultsCount} Results found for '${this.searchTerm}'`);
     console.log(result.resultTitles);
 
     if (twilioConfig.enabled) {
-      const message = `${result.resultsCount} Results found for '${searchTerm}':\n` +
+      const message = `${result.resultsCount} Results found for '${this.searchTerm}':\n` +
           result.resultTitles
               .map(([title, price]) => `${title} - ${price ? price : 'No price'}`)
               .join('\n');
@@ -99,11 +78,38 @@ class SearchNotifier {
         .catch(err => console.error('Error sending message:', err));
   }
 
-  scheduleSearch(searchTerm, interval = '*/30 * * * * *') {
-    this.job = schedule.scheduleJob(interval, () => {
+  scheduleSearch(interval = '*/30 * * * * *') {
+    this.job = schedule.scheduleJob(interval, async () => {
       console.log('Running scheduled search...');
-      this.notify(searchTerm);
+      await this.initBrowser()
+      this.notify();
     });
+  }
+
+  async initBrowser() {
+    this.browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+    });
+    this.page = await this.browser.newPage();
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/118.0'
+    ];
+    await this.page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
+    await this.page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9'
+    });
+
+    try {
+      const client = await this.page.createCDPSession();
+      await client.send('Network.clearBrowserCookies');
+      await client.send('Network.clearBrowserCache');
+      console.log('Cookies and cache cleared.');
+    } catch (error) {
+      console.error('Error clearing cookies and cache:', error);
+    }
   }
 
   async jobShutdown() {
@@ -123,11 +129,11 @@ const accountSid = twilioConfig.accountSid;
 const authToken = twilioConfig.authToken;
 const toPhoneNumber = twilioConfig.toPhoneNumber;
 const fromPhoneNumber = twilioConfig.fromPhoneNumber;
-
-const notifier = new SearchNotifier(accountSid, authToken, toPhoneNumber, fromPhoneNumber);
 const searchTerm = process.argv[2];
 
-notifier.scheduleSearch(searchTerm);
+const notifier = new SearchNotifier(accountSid, authToken, toPhoneNumber, fromPhoneNumber, searchTerm);
+
+notifier.scheduleSearch();
 
 process.on('SIGINT', async () => {
   await notifier.jobShutdown();
