@@ -54,10 +54,8 @@ class SearchNotifier {
       this.sendTextMessage(message);
     }
 
-    if (this.job) {
-      console.log('Results found, stopping the scheduled job.');
-      this.job.cancel();
-    }
+    console.log('Results found, stopping the scheduled job.');
+    await this.jobShutdown();
   }
 
   sendTextMessage(message) {
