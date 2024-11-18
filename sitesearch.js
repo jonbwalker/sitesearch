@@ -39,7 +39,7 @@ class SearchNotifier {
 
     try {
       await page.goto(url, {waitUntil: 'networkidle2'});
-      console.log('debugging', debugging)
+
       if (debugging) {
         const html = await page.content();
         console.log('HTML content:', html);
