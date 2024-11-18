@@ -29,7 +29,7 @@ class SearchNotifier {
     });
 
     try {
-      const client = await page.createCDPSession(); // Use the new method
+      const client = await page.createCDPSession();
       await client.send('Network.clearBrowserCookies');
       await client.send('Network.clearBrowserCache');
       console.log('Cookies and cache cleared.');
