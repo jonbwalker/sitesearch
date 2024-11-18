@@ -45,7 +45,7 @@ class SearchNotifier {
         console.log('HTML content:', html);
       }
 
-      const result = await page.evaluate((resultClass) => {
+      return await page.evaluate((resultClass) => {
         const noResults = document.querySelector('p')?.textContent.includes('no results');
         const resultEls = document.querySelectorAll(resultClass);
         const resultTitles = Array.from(resultEls).map(el => {
@@ -58,8 +58,6 @@ class SearchNotifier {
 
         return {noResults, resultsCount, resultTitles};
       }, resultClass);
-
-      return result;
     } catch (error) {
       console.error('Error loading page:', error);
     } finally {
