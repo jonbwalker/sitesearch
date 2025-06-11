@@ -28,7 +28,7 @@ class SearchNotifier {
         const noResults = document.querySelector('p')?.textContent.includes('no results');
         const resultEls = document.querySelectorAll(resultClass);
         const resultTitles = Array.from(resultEls).map(el => {
-          const span = el.querySelector('span');
+          const span = el.querySelector('h5 span');
           const priceElement = Array.from(el.querySelectorAll('p')).find(p => p.textContent.includes('$'));
           const price = priceElement ? priceElement.textContent : null;
           return [span?.textContent, price];
